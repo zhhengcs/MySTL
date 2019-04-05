@@ -1,19 +1,29 @@
 #ifndef RedBlack_h
 #define RedBlack_h
-template<typename T,typename K>
-class RedBlack
-{
+#include <stdlib.h>           
+#include   <string.h>
+#include <iostream>
+using namespace std;
+// std::swap is available in this context
+//template <class T> inline void swap(T& a, T& b)
+//{
+//	T c(a); a = b; b = c;
+//};
+template<typename T, typename K>
+class RedBlack {
 public:
-	using RBIter=bool(*)(K,T*);
-	RedBlack();
+	using RBIter = bool(*)(K, T*);
+	RedBlack(bool);
 	~RedBlack();
 	bool deleteNode(K);
-	bool insertNode(K,T*);
+	bool insertNode(K, T*);
 	int blackHeight();
 	int nodeCount(bool);
 	T* nodeSearch(K);
 	void iterate(RBIter);
-	void reverseIterator(RBIter);
+	void reverseIterate(RBIter);
+	void levelIterate(RBIter);
+
 private:
 	enum Colour { RED, BLACK };
 	struct rbNode {
@@ -44,36 +54,34 @@ private:
 	rbNode* rbMakeNode(K key, T* data);
 	void rbIterate(rbNode*, RBIter);
 	void rbRevIterate(rbNode*, RBIter);
-}
-
-
+	void rbLvIterate(rbNode*, RBIter);
+	void printColour(Colour);
+};
+// Constructot / destructor
 template<typename T, typename K>
-RedBlack<T, K>::RedBlack(bool noUpdates = false) {
+RedBlack<T, K>::RedBlack(bool noUpdates) {
 	root = NULL;
-	nodeSize=sizeof(rbNode);
-	tSize=sizeof(T);
-	updateOK=!noUpdates;
+	nodeSize = sizeof(rbNode);
+	tSize = sizeof(T);
+	updateOK = !noUpdates;
 }
 template<typename T, typename K>
 RedBlack<T, K>::~RedBlack() {
 	rbDeleteTree(root);
 }
-
 template<typename T, typename K>
 bool RedBlack<T, K>::insertNode(K key, T* data) {
-	memoryError=false;
-	rbNode* temp = rbMakeNode(key,data);
-	root = rbInsert(temp,root);
-	root = rbPostInsertFix(temp,root);
+	memoryError = false;
+	rbNode* temp = rbMakeNode(key, data);
+	root = rbInsert(temp, root);
+	rbPostInsertFix(temp, root);
 	return memoryError;
 }
 template<typename T, typename K>
-bool RedBlack<T, K>::deleteNode(K key)
-{
-	rbNode* found = rbFind(key,root);
-	if(found)
-	{
-		rbNode* del = rbPreDeleteFix(found,root);
+bool RedBlack<T, K>::deleteNode(K key) {
+	rbNode* found = rbFind(key, root);
+	if (found) {
+		rbNode* del = rbPreDeleteFix(found, root);
 		free(del->data);
 		free(del);
 		return true;
@@ -81,14 +89,13 @@ bool RedBlack<T, K>::deleteNode(K key)
 	return false;
 }
 template<typename T, typename K>
-T* RedBlack<T,K>::nodeSearch(K key)
-{
-	return rbSearch(key);
+T* RedBlack<T, K>::nodeSearch(K key) {
+	return rbSearch(key, root);
 }
+
 template<typename T, typename K>
-void RedBlack<T,K>::iterate(RBIter callBack)
-{
-	rbRepeat=true;
+void RedBlack<T, K>::iterate(RBIter callBack) {
+	rbRepeat = true;
 	rbIterate(root, callBack);
 }
 
@@ -97,190 +104,189 @@ void RedBlack<T, K>::reverseIterate(RBIter callBack) {
 	rbRepeat = true;
 	rbRevIterate(root, callBack);
 }
+template<typename T, typename K>
+void RedBlack<T, K>::levelIterate(RBIter callback) {
+	rbRepeat = true;
+	rbLvIterate(root, callback);
+}
 
 template<typename T, typename K>
 int RedBlack<T, K>::blackHeight() {
 	return rbHeight(root);
 }
-
 template<typename T, typename K>
 int RedBlack<T, K>::nodeCount(bool blackOnly) {
 	return rbCount(blackOnly, root);
 }
-
-
-// private methods
+//private methods
 template<typename T, typename K>
 typename RedBlack<T, K>::rbNode* RedBlack<T, K>::rbMakeNode(K key, T* data) {
 	rbNode* temp = (rbNode*)malloc(nodeSize);
-	if(temp == NULL)
-		memoryError=true;
-	temp->key=key;
-	temp->left=temp->right=temp->parent=NULL;
-	temp->colour=RED;
-	temp->data=malloc(tSize);
-	if(temp->data){
-		memcpy(temp->data,data,tSize);
+	if (temp == NULL) {
+		memoryError = true;
 	}
-	else{
-		memoryError=true;
+	temp->key = key;
+	temp->left = temp->right = temp->parent = NULL;
+	temp->colour = RED;
+	temp->data = malloc(tSize);
+	if (temp->data) {
+		memcpy(temp->data, data, tSize);
+	}
+	else {
+		memoryError = true;
 	}
 	return temp;
 }
-
 template<typename T, typename K>
-typename RedBlack<T,K>::rbNode* RedBlack<T,K>::rbInsert(rbNode* node,rbNode* leaf)
-{
+typename RedBlack<T, K>::rbNode* RedBlack<T, K>::rbInsert(rbNode* node, rbNode* leaf) {
 	if (leaf == NULL) {
 		return node;
 	}
-	if(node->key==leaf->key){
-		if(updateOK){
-			memcpy(leaf->data,node->data,tSize);
+	if (node->key == leaf->key) {
+		if (updateOK) {
+			memcpy(leaf->data, node->data, tSize);
 			free(node->data);
 			free(node);
 		}
-		else{
-			memoryError=true;
+		else {
+			memoryError = true; // well sort of
 		}
-		return leaf
+		return leaf;
 	}
-	if(node->key < leaf->key){
-		leaf->left = rbInsert(node,rb->leaf);
+	if (node->key < leaf->key) {
+		leaf->left = rbInsert(node, leaf->left);
 		leaf->left->parent = leaf;
 	}
-	else if(node->key > leaf->key){
-		leaf->right=rbInsert(node,leaf->right);
-		leaf->right->parent = leaf->right;
+	else if (node->key > leaf->key) {
+		leaf->right = rbInsert(node, leaf->right);
+		leaf->right->parent = leaf;
 	}
 	return leaf;
-} 
+}
 template<typename T, typename K>
-void RedBlack<T,K>::rbPostInsertFix(rbNode* node,rbNode*& root)
-{
-	rbNode* grandma = NULL;
+void RedBlack<T, K>::rbPostInsertFix(rbNode* node, rbNode*& root) {
+	rbNode* grandMa = NULL;
 	rbNode* aunty = NULL;
-	while (node != root && node->parent->color == RED)
-	{
-		grandma = node->parent->parent;
-		if (node->parent == grandma->left)
-		{
-			aunty = grandma->right;
-			if(aunty && aunty->colour == RED)
-			{
+	while (node != root && node->parent->colour == RED) {
+		grandMa = node->parent->parent;
+		if (node->parent == grandMa->left) {
+			aunty = grandMa->right;
+			if (aunty && aunty->colour == RED) {
 				node->parent->colour = BLACK;
 				aunty->colour = BLACK;
-				grandma->colour = RED;
-				node=grandma;
-			}else{
-				if(node==node->parent->right){
-					node=node->parent;
-					rbRotateLeft(node,root);
-				}
-				node->parent->colour=BLACK;
-				grandma->colour = RED;
-				rbRotateRight(grandma,root);
+				grandMa->colour = RED;
+				node = grandMa;
 			}
-		}
-		else{
-			aunty=grandma->left;
-			if(aunty&&aunty->colour==RED)
-			{
-				node->parent->colour=BLACK;
-				aunty->colour=BLACK;
-				grandma->colour = RED;
-				node=grandma;
-			}else{
-				if(node == node->parent->left){
-					node=node->parent;
-					rbRotateRight(node,root);
+			else {
+				if (node == node->parent->right) {
+					node = node->parent;
+					rbRotateLeft(node, root);
 				}
 				node->parent->colour = BLACK;
-				grandma->colour=RED;
-				rbRotateLeft(grandma,root);
+				grandMa->colour = RED;
+				rbRotateRight(grandMa, root);
+			}
+		}
+		else {
+			aunty = grandMa->left;
+			if (aunty && aunty->colour == RED) {
+				node->parent->colour = BLACK;
+				aunty->colour = BLACK;
+				grandMa->colour = RED;
+				node = grandMa;
+			}
+			else {
+				if (node == node->parent->left) {
+					node = node->parent;
+					rbRotateRight(node, root);
+				}
+				node->parent->colour = BLACK;
+				grandMa->colour = RED;
+				rbRotateLeft(grandMa, root);
 			}
 		}
 	}
 	root->colour = BLACK;
 }
 template<typename T, typename K>
-typename RedBlack<T, K>::rbNode* RedBlack<T, K>::rbFind(K key, rbNode* leaf)
-{
-	if(leaf) {
-		if(leaf->key == key) {
+typename RedBlack<T, K>::rbNode* RedBlack<T, K>::rbFind(K key, rbNode* leaf) {
+	if (leaf) {
+		if (leaf->key == key) {
 			return leaf;
 		}
-		if(key < leaf->key) {
+		if (key < leaf->key) {
 			return rbFind(key, leaf->left);
 		}
 		return rbFind(key, leaf->right);
 	}
 	return NULL;
 }
-
 template<typename T, typename K>
-typename RedBlack<T, K>::rbNode* RedBlack<T,K>::rbPreDeleteFix(rbNode* node,rbNode*& root)
-{
-	rbNode* nodeToDelete = NULL;
+typename RedBlack<T, K>::rbNode* RedBlack<T, K>::rbPreDeleteFix(rbNode* node, rbNode*& root) {
+	rbNode* nodeToDelete = node;
 	rbNode* child = NULL;
 	rbNode* parentNode = NULL;
-	if(nodeToDelete->left==NULL){
-		child = nodeToDelete->right;
+	if (nodeToDelete->left == NULL) {    // node has one or no children
+		child = nodeToDelete->right;       // which might be NULL
 	}
-	else{
-		if(nodeToDelete->right == NULL)
-			child = nodeToDelete->left;
-		else{
+	else {
+		if (nodeToDelete->right == NULL)   // node has one child
+			child = nodeToDelete->left;      // child is not NULL
+		else {                         // node has two children
 			nodeToDelete = rbMinimum(nodeToDelete->right);
+			// so we reset to the minimum key node
+			// from the right child (so next largest key)
 			child = nodeToDelete->right;
 		}
 	}
-	if(nodeToDelete != node){
-		node->left->parent = nodeToDelete->parent;
+	if (nodeToDelete != node) {
+		// if the nodeToDelete got changed above
+		node->left->parent = nodeToDelete;
 		nodeToDelete->left = node->left;
-		if(nodeToDelete!=node->right){
-			parentNode=nodeToDelete->parent;
-			if(child){
-				child->parent=nodeToDelete->parent;
+		if (nodeToDelete != node->right) {
+			parentNode = nodeToDelete->parent;
+			if (child) {
+				child->parent = nodeToDelete->parent;
 			}
-			nodeToDelete->parent->left=child;
+			nodeToDelete->parent->left = child;
 			nodeToDelete->right = node->right;
 			node->right->parent = nodeToDelete;
 		}
-		else{
-			parentNode=nodeToDelete;
+		else {
+			parentNode = nodeToDelete;
 		}
-		if(root == node){
+		if (root == node) {
 			root = nodeToDelete;
 		}
-		else if(node->parent->left==node){
+		else if (node->parent->left == node) {
 			node->parent->left = nodeToDelete;
 		}
-		else{
+		else {
 			node->parent->right = nodeToDelete;
 		}
 		nodeToDelete->parent = node->parent;
-		swap(nodeToDelete->colour,node->colour);
-		nodeToDelete=node;
+		std::swap(nodeToDelete->colour, node->colour);
+		nodeToDelete = node;
+		// nodeToDelete now deinately points to node to be deleted
 	}
-	else{
-		parentNode=nodeToDelete->parent;
-		if(child){
-			child->parent=nodeToDelete->parent;
+	else {
+		parentNode = nodeToDelete->parent;
+		if (child) {
+			child->parent = nodeToDelete->parent;
 		}
-		if(root == node)
+		if (root == node) {
 			root = child;
-		else{
-			if(node->parent->left == node){
+		}
+		else {
+			if (node->parent->left == node) {
 				node->parent->left = child;
 			}
-			else{
+			else {
 				node->parent->right = child;
 			}
 		}
 	}
-
-	if(nodeToDelete->colour!=RED){
+	if (nodeToDelete->colour != RED) {
 		while (child != root && (child == NULL || child->colour == BLACK)) {
 			if (child == parentNode->left) {
 				rbNode* sisterNode = parentNode->right;
@@ -354,92 +360,95 @@ typename RedBlack<T, K>::rbNode* RedBlack<T,K>::rbPreDeleteFix(rbNode* node,rbNo
 		if (child) {
 			child->colour = BLACK;
 		}
-
 	}
 	return nodeToDelete;
 }
-
-
-template<typename T,typename K>
-void RedBlack<T,K>::rbRotateLeft(rbNode* node,rbNode*& root)
-{
+template<typename T, typename K>
+void RedBlack<T, K>::rbRotateLeft(rbNode* node, rbNode*& root) {
 	rbNode* child = node->right;
 	node->right = child->left;
-	if(child->left)
-	{
-		child->left->parent=node;
+	if (child->left) {
+		child->left->parent = node;
 	}
-	child->parent=node->parent;
-	if(node == root){
+	child->parent = node->parent;
+	if (node == root) {
 		root = child;
 	}
-	else if(node == node->parent->left){
+	else if (node == node->parent->left) {
 		node->parent->left = child;
-	}else{
+	}
+	else {
 		node->parent->right = child;
 	}
 	child->left = node;
 	node->parent = child;
 }
-template<typename T,typename K>
-void RedBlack<T,K>::rbRotateRight(rbNode* node,rbNode*& root)
-{
+template<typename T, typename K>
+void RedBlack<T, K>::rbRotateRight(rbNode* node, rbNode*& root) {
 	rbNode* child = node->left;
 	node->left = child->right;
-	if(child->right!=NULL)
-	{
+	if (child->right != 0) {
 		child->right->parent = node;
 	}
 	child->parent = node->parent;
-	if(node == root)
-		root = child
-	else if(node == node->parent->right)
-	{
+	if (node == root) {
+		root = child;
+	}
+	else if (node == node->parent->right) {
 		node->parent->right = child;
-	}else{
+	}
+	else {
 		node->parent->left = child;
 	}
 	child->right = node;
 	node->parent = child;
 }
 template<typename T, typename K>
-T* RedBlack<T,K>::rbSearch(K key,rbNode* leaf)
-{
-	if(leaf){
-		if(leaf->key==key){
-			return (cBoard*) leaf->data;
+T* RedBlack<T, K>::rbSearch(K key, rbNode* leaf) {
+	if (leaf) {
+		if (leaf->key == key) {
+			return (T*)leaf->data;
 		}
-		if(key < leaf->key){
-			return rbSearch(key,leaf->left);
+		if (key < leaf->key) {
+			return rbSearch(key, leaf->left);
 		}
-		return rbSearch(key,leaf->right);
+		return rbSearch(key, leaf->right);
 	}
 	return NULL;
 }
-
-template<typename T, typename K>
-typename RedBlack<T, K>::rbNode* RedBlack<T, K>::rbMinimum(rbNode* node) {
-
-	for(;node->left;node = node->left);
-	return node;
-}
-
-template<typename T, typename K>
-typename RedBlack<T, K>::rbNode* RedBlack<T, K>::rbMaximum(rbNode* node) {
-	while (node->right) {
-		node = node->right;
-	}
-	return node;
-}
-
 template<typename T, typename K>
 void RedBlack<T, K>::rbIterate(rbNode* leaf, RBIter callBack) {
-	if(root==NULL)
-		return ;
-	rbIterate(root->left,callBack);
-	callBack(root->key,(cBoard*)root->data);
-	rbIterate(root->right,callBack);
+	if (leaf && rbRepeat) {
+		rbIterate(leaf->left, callBack);
+		if (rbRepeat) {
+			//cout << leaf->colour << ' ';
+			printColour(Colour(leaf->colour));
+			rbRepeat = callBack(leaf->key, (T*)leaf->data);
+			rbIterate(leaf->right, callBack);
+		}
+	}
 }
+template<typename T, typename K>
+void RedBlack<T,K>::printColour(Colour e){
+	switch (e) {
+		case RED:cout << "RED "; break;
+		case BLACK:cout << "Black "; break;
+	}
+}
+template<typename T, typename K>
+void RedBlack<T, K>::rbLvIterate(rbNode* leaf,RBIter callback) {
+	if (leaf&&rbRepeat) {
+		if (rbRepeat){
+			//cout << leaf->colour << ' ';
+			printColour(Colour(leaf->colour));
+			rbRepeat = callback(leaf->key, (T*)leaf->data);
+		}
+		rbLvIterate(leaf->left, callback);
+		rbLvIterate(leaf->right, callback);
+	}
+
+}
+
 
 template<typename T, typename K>
 void RedBlack<T, K>::rbRevIterate(rbNode* leaf, RBIter callBack) {
@@ -451,16 +460,19 @@ void RedBlack<T, K>::rbRevIterate(rbNode* leaf, RBIter callBack) {
 		}
 	}
 }
-
-
 template<typename T, typename K>
-void RedBlack<T, K>::rbDeleteTree(rbNode* leaf) {
-	if(leaf){
-		rbDeleteTree(leaf->left);
-		rbDeleteTree(leaf->right);
-		free(leaf->data);
-		free(leaf);
+typename RedBlack<T, K>::rbNode* RedBlack<T, K>::rbMinimum(rbNode* node) {
+	while (node->left) {
+		node = node->left;
 	}
+	return node;
+}
+template<typename T, typename K>
+typename RedBlack<T, K>::rbNode* RedBlack<T, K>::rbMaximum(rbNode* node) {
+	while (node->right) {
+		node = node->right;
+	}
+	return node;
 }
 template<typename T, typename K>
 int RedBlack<T, K>::rbHeight(rbNode* leaf) {
@@ -471,10 +483,26 @@ int RedBlack<T, K>::rbHeight(rbNode* leaf) {
 	}
 	return 0;
 }
-
 template<typename T, typename K>
 int RedBlack<T, K>::rbMax(int a, int b) {
 	return (a <= b) ? b : a;
 }
-
+template<typename T, typename K>
+int RedBlack<T, K>::rbCount(bool blackOnly, rbNode* leaf) {
+	if (leaf) {
+		int rVal = 1;
+		if (blackOnly && leaf->colour == RED) { rVal--; }
+		return rVal + rbCount(blackOnly, leaf->left) + rbCount(blackOnly, leaf->right);
+	}
+	return 0;
+}
+template<typename T, typename K>
+void RedBlack<T, K>::rbDeleteTree(rbNode* leaf) {
+	if (leaf) {
+		rbDeleteTree(leaf->left);
+		rbDeleteTree(leaf->right);
+		free(leaf->data);
+		free(leaf);
+	}
+}
 #endif
